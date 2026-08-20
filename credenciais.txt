@@ -1,0 +1,6 @@
+Administrador
+E-mail: admin@guarita.local
+Senha: Guarita@2026
+Segurança
+E-mail: seguranca@guarita.local
+Senha: Seguranca@2026
