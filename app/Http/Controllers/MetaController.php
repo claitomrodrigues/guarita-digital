@@ -9,6 +9,7 @@ use App\Enums\StatusAcesso;
 use App\Enums\TipoAcesso;
 use App\Enums\TipoVeiculo;
 use App\Enums\TipoVinculo;
+use App\Enums\StatusTriagem;
 use Illuminate\Http\JsonResponse;
 
 class MetaController extends Controller
@@ -22,6 +23,7 @@ class MetaController extends Controller
                 'tipos_veiculo' => TipoVeiculo::opcoes(),
                 'tipos_acesso' => TipoAcesso::opcoes(),
                 'status_acesso' => StatusAcesso::opcoes(),
+                'status_triagem' => StatusTriagem::opcoes(),
                 'origens_acesso' => OrigemAcesso::opcoes(),
                 'sentidos_ponto_acesso' => SentidoPontoAcesso::opcoes(),
             ],

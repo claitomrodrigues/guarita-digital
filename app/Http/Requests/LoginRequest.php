@@ -13,17 +13,14 @@ class LoginRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('email')) {
-            $this->merge([
-                'email' => mb_strtolower(trim((string) $this->input('email')), 'UTF-8'),
-            ]);
-        }
+        $login = $this->input('login', $this->input('email'));
+        $this->merge(['login' => mb_strtolower(trim((string) $login), 'UTF-8')]);
     }
 
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email:rfc', 'max:255'],
+            'login' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
             'remember' => ['sometimes', 'boolean'],
         ];

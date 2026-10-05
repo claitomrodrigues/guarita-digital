@@ -1,96 +1,108 @@
 <?php
 
 namespace App\Http\Controllers;
-
-use App\Enums\StatusAcesso;
 use App\Enums\TipoAcesso;
-use App\Http\Resources\AcessoResource;
 use App\Models\Acesso;
-use App\Models\Pessoa;
 use App\Models\Veiculo;
-use Carbon\CarbonPeriod;
-use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(): View|JsonResponse
     {
-        $inicioHoje = now()->startOfDay();
-        $fimHoje = now()->endOfDay();
-        $inicioSerie = now()->subDays(6)->startOfDay();
+        $inicioHoje = Carbon::today();
+        $fimHoje = Carbon::tomorrow();
 
-        $presentes = Acesso::query()
-            ->from('acessos as atual')
-            ->where('atual.tipo', TipoAcesso::Entrada->value)
-            ->whereIn('atual.status', [
-                StatusAcesso::Autorizado->value,
-                StatusAcesso::LiberadoManualmente->value,
+        $acessosHoje = Acesso::query()
+            ->where('data_hora', '>=', $inicioHoje)
+            ->where('data_hora', '<', $fimHoje)
+            ->get(['tipo', 'data_hora']);
+
+        $movimentacoesPorHora = collect(range(0, 23))
+            ->map(fn (int $hora): array => [
+                'hora' => sprintf('%02d:00', $hora),
+                'entradas' => 0,
+                'saidas' => 0,
             ])
-            ->whereNotExists(function (QueryBuilder $query): void {
-                $query
-                    ->selectRaw('1')
-                    ->from('acessos as posterior')
-                    ->whereColumn('posterior.placa_reconhecida', 'atual.placa_reconhecida')
-                    ->where(function (QueryBuilder $query): void {
-                        $query
-                            ->whereColumn('posterior.data_hora', '>', 'atual.data_hora')
-                            ->orWhere(function (QueryBuilder $query): void {
-                                $query
-                                    ->whereColumn('posterior.data_hora', '=', 'atual.data_hora')
-                                    ->whereColumn('posterior.id', '>', 'atual.id');
-                            });
-                    });
-            })
-            ->count();
+            ->all();
 
-        $movimentacao = Acesso::query()
-            ->selectRaw('DATE(data_hora) as dia')
-            ->selectRaw('SUM(CASE WHEN tipo = ? THEN 1 ELSE 0 END) as entradas', [TipoAcesso::Entrada->value])
-            ->selectRaw('SUM(CASE WHEN tipo = ? THEN 1 ELSE 0 END) as saidas', [TipoAcesso::Saida->value])
-            ->where('data_hora', '>=', $inicioSerie)
-            ->groupBy(DB::raw('DATE(data_hora)'))
-            ->orderBy('dia')
-            ->get()
-            ->keyBy('dia');
-
-        $serie = [];
-
-        foreach (CarbonPeriod::create($inicioSerie, now()->startOfDay()) as $dia) {
-            $chave = $dia->toDateString();
-            $registro = $movimentacao->get($chave);
-
-            $serie[] = [
-                'data' => $chave,
-                'entradas' => (int) ($registro?->entradas ?? 0),
-                'saidas' => (int) ($registro?->saidas ?? 0),
-            ];
+        foreach ($acessosHoje as $acesso) {
+            $hora = (int) $acesso->data_hora->format('G');
+            $coluna = $acesso->tipo === TipoAcesso::Entrada ? 'entradas' : 'saidas';
+            $movimentacoesPorHora[$hora][$coluna]++;
         }
 
-        $ultimos = Acesso::query()
-            ->with(['veiculo.pessoa', 'pessoa', 'usuario', 'pontoAcesso'])
+        $totalEntradasHoje = array_sum(array_column($movimentacoesPorHora, 'entradas'));
+        $totalSaidasHoje = array_sum(array_column($movimentacoesPorHora, 'saidas'));
+
+        $picoEntrada = collect($movimentacoesPorHora)->sortByDesc('entradas')->first();
+        $picoSaida = collect($movimentacoesPorHora)->sortByDesc('saidas')->first();
+
+        $picoEntrada = $picoEntrada['entradas'] > 0 ? $picoEntrada['hora'] : '—';
+        $picoSaida = $picoSaida['saidas'] > 0 ? $picoSaida['hora'] : '—';
+
+        $acessosRecentes = Acesso::query()
+            ->with('veiculo')
             ->latest('data_hora')
-            ->latest('id')
             ->limit(10)
-            ->get();
+            ->get()
+            ->map(fn (Acesso $acesso): array => [
+                'horario' => $acesso->data_hora->format('H:i'),
+                'placa' => $acesso->placa_reconhecida,
+                'veiculo' => trim(implode(' ', array_filter([
+                    $acesso->veiculo?->marca,
+                    $acesso->veiculo?->modelo,
+                ]))) ?: '—',
+                'tipo' => $acesso->tipo?->value ?? '',
+                'autorizado' => $acesso->status?->permitePassagem() ?? false,
+            ])
+            ->all();
 
-        $acessosHoje = Acesso::query()->whereBetween('data_hora', [$inicioHoje, $fimHoje]);
+        $acessosNoPatio = Acesso::query()
+            ->with('veiculo')
+            ->where('tipo', TipoAcesso::Entrada)
+            ->where('id', '=', function ($query): void {
+                $query->select('ultimo_acesso.id')
+                    ->from('acessos as ultimo_acesso')
+                    ->whereColumn('ultimo_acesso.placa_reconhecida', 'acessos.placa_reconhecida')
+                    ->orderByDesc('ultimo_acesso.data_hora')
+                    ->orderByDesc('ultimo_acesso.id')
+                    ->limit(1);
+            })
+            ->latest('data_hora')
+            ->get()
+            ->map(fn (Acesso $acesso): array => [
+                'horario' => $acesso->data_hora->format('d/m/Y H:i'),
+                'placa' => $acesso->placa_reconhecida,
+                'veiculo' => trim(implode(' ', array_filter([
+                    $acesso->veiculo?->marca,
+                    $acesso->veiculo?->modelo,
+                ]))) ?: '—',
+            ])
+            ->all();
 
-        return response()->json([
-            'resumo' => [
-                'pessoas_ativas' => Pessoa::query()->ativas()->count(),
-                'veiculos_ativos' => Veiculo::query()->ativos()->count(),
-                'veiculos_autorizados' => Veiculo::query()->aptosAoAcesso()->count(),
-                'veiculos_presentes' => $presentes,
-                'entradas_hoje' => (clone $acessosHoje)->where('tipo', TipoAcesso::Entrada->value)->count(),
-                'saidas_hoje' => (clone $acessosHoje)->where('tipo', TipoAcesso::Saida->value)->count(),
-                'nao_cadastrados_hoje' => (clone $acessosHoje)->where('status', StatusAcesso::NaoCadastrado->value)->count(),
-                'bloqueados_hoje' => (clone $acessosHoje)->where('status', StatusAcesso::Bloqueado->value)->count(),
-            ],
-            'movimentacao_7_dias' => $serie,
-            'ultimos_acessos' => AcessoResource::collection($ultimos),
-            'gerado_em' => now()->toIso8601String(),
-        ]);
+        $dados = [
+            'totalVeiculos' => Veiculo::query()->count(),
+            'veiculosAutorizados' => Veiculo::query()
+                ->where('ativo', true)
+                ->where('autorizado', true)
+                ->count(),
+            'totalEntradasHoje' => $totalEntradasHoje,
+            'totalSaidasHoje' => $totalSaidasHoje,
+            'veiculosNoPatio' => count($acessosNoPatio),
+            'veiculosNoPatioLista' => $acessosNoPatio,
+            'movimentacoesPorHora' => $movimentacoesPorHora,
+            'movimentacoesRecentes' => $acessosRecentes,
+            'picoEntrada' => $picoEntrada,
+            'picoSaida' => $picoSaida,
+        ];
+
+        if (request()->expectsJson()) {
+            return response()->json($dados);
+        }
+
+        return view('home', $dados);
     }
 }

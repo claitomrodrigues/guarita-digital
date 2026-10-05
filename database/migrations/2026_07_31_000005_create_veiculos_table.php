@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('veiculos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pessoa_id')->nullable()->constrained('pessoas')->nullOnDelete();
+            $table->foreignId('pessoa_id')->constrained('pessoas');
             $table->string('placa', 7)->unique();
             $table->string('marca', 80)->nullable();
             $table->string('modelo', 100)->nullable();
@@ -19,8 +19,6 @@ return new class extends Migration
             $table->unsignedSmallInteger('ano')->nullable();
             $table->boolean('ativo')->default(true)->index();
             $table->boolean('autorizado')->default(true)->index();
-            $table->date('validade_autorizacao')->nullable()->index();
-            $table->string('motivo_bloqueio', 255)->nullable();
             $table->text('observacoes')->nullable();
             $table->timestamps();
             $table->softDeletes();

@@ -10,15 +10,21 @@ class PontoAcessoSeeder extends Seeder
 {
     public function run(): void
     {
-        PontoAcesso::query()->updateOrCreate(
-            ['codigo' => 'GUARITA-PRINCIPAL'],
-            [
-                'nome' => 'Guarita principal',
-                'sentido' => SentidoPontoAcesso::Ambos,
-                'localizacao' => 'Entrada principal do campus',
-                'descricao' => 'Ponto padrão para registros de entrada e saída.',
-                'ativo' => true,
-            ],
-        );
+        $pontos = [
+            ['codigo' => 'GUARITA-ENTRADA', 'nome' => 'Entrada principal', 'sentido' => SentidoPontoAcesso::Entrada],
+            ['codigo' => 'GUARITA-SAIDA', 'nome' => 'Saída principal', 'sentido' => SentidoPontoAcesso::Saida],
+        ];
+
+        foreach ($pontos as $ponto) {
+            PontoAcesso::query()->updateOrCreate(
+                ['codigo' => $ponto['codigo']],
+                [
+                    ...$ponto,
+                    'localizacao' => 'Guarita principal do campus',
+                    'descricao' => 'Ponto padrão de controle do fluxo veicular.',
+                    'ativo' => true,
+                ],
+            );
+        }
     }
 }

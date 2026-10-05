@@ -27,8 +27,6 @@ class VeiculoFactory extends Factory
             'ano' => fake()->numberBetween(2000, now()->year + 1),
             'ativo' => true,
             'autorizado' => true,
-            'validade_autorizacao' => null,
-            'motivo_bloqueio' => null,
             'observacoes' => null,
         ];
     }

@@ -24,6 +24,7 @@ class ConfiguracaoController extends Controller
         ConfiguracaoSistema $configuracao,
     ): ConfiguracaoSistemaResource {
         $configuracao->update($request->validated());
+        ConfiguracaoSistema::esquecer($configuracao->chave);
 
         return new ConfiguracaoSistemaResource($configuracao->refresh());
     }

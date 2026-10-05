@@ -8,13 +8,16 @@ use App\Http\Requests\RegistrarAcessoManualRequest;
 use App\Http\Resources\AcessoResource;
 use App\Models\Acesso;
 use App\Models\PontoAcesso;
+use App\Models\Veiculo;
 use App\Services\AcessoService;
+use App\Services\TriagemService;
 use App\Support\Placa;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AcessoController extends Controller
@@ -62,8 +65,17 @@ class AcessoController extends Controller
     public function registrarManual(
         RegistrarAcessoManualRequest $request,
         AcessoService $service,
+        TriagemService $triagens,
     ): JsonResponse {
         $dados = $request->validated();
+        $liberarManualmente = $request->boolean('liberar_manualmente');
+
+        if ($liberarManualmente && ! Veiculo::query()->where('placa', $dados['placa'])->exists()) {
+            throw ValidationException::withMessages([
+                'placa' => 'Só é possível liberar manualmente um veículo cadastrado.',
+            ]);
+        }
+
         $ponto = isset($dados['ponto_acesso_id'])
             ? PontoAcesso::query()->find($dados['ponto_acesso_id'])
             : null;
@@ -73,10 +85,11 @@ class AcessoController extends Controller
             tipo: \App\Enums\TipoAcesso::from($dados['tipo']),
             usuario: $request->user(),
             pontoAcesso: $ponto,
-            dataHora: $dados['data_hora'] ?? null,
-            liberarManualmente: $request->boolean('liberar_manualmente'),
+            dataHora: $dados['data_hora'] ?? now(),
+            liberarManualmente: $liberarManualmente,
             observacoes: $dados['observacoes'] ?? null,
         );
+        $triagem = $triagens->criarSeNecessaria($resultado->acesso);
 
         return response()->json([
             'message' => $resultado->duplicado
@@ -84,6 +97,7 @@ class AcessoController extends Controller
                 : 'Acesso registrado com sucesso.',
             'duplicado' => $resultado->duplicado,
             'data' => new AcessoResource($resultado->acesso),
+            'triagem_id' => $triagem?->id,
         ], $resultado->duplicado ? 200 : 201);
     }
 

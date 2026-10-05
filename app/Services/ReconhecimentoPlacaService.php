@@ -7,14 +7,14 @@ use App\Support\Placa;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use JsonException;
+use Throwable;
 
 class ReconhecimentoPlacaService
 {
     public function reconhecer(string $caminhoImagem): string
     {
         $python = trim((string) config('guarita.python_executable', 'python'));
-        $script = (string) config('guarita.placa_script', base_path('python/placa.py'));
-        $tesseract = trim((string) config('guarita.tesseract_executable', ''));
+        $script = (string) config('guarita.placa_script', base_path('python/reconhecer_imagem.py'));
 
         $this->validarExecutavelConfigurado($python, 'Python');
 
@@ -26,73 +26,88 @@ class ReconhecimentoPlacaService
             throw new ReconhecimentoPlacaException('A imagem temporária não foi encontrada para o reconhecimento.');
         }
 
-        if ($tesseract !== '') {
-            $this->validarExecutavelConfigurado($tesseract, 'Tesseract');
+        $ambienteSistema = getenv();
+$ambiente = is_array($ambienteSistema) ? $ambienteSistema : [];
+
+if (PHP_OS_FAMILY === 'Windows') {
+    $systemRoot = getenv('SystemRoot')
+        ?: getenv('windir')
+        ?: 'C:\\Windows';
+
+    $ambiente['SystemRoot'] = $systemRoot;
+    $ambiente['windir'] = $systemRoot;
+}
+
+$ambiente['PYTHONIOENCODING'] = 'utf-8';
+$ambiente['PYTHONUTF8'] = '1';
+
+        try {
+            $resultado = Process::timeout(max(5, (int) config('guarita.ocr_timeout_seconds', 180)))
+                ->idleTimeout(max(5, (int) config('guarita.ocr_idle_timeout_seconds', 90)))
+                ->env($ambiente)
+                ->path(dirname($script))
+                ->run([$python, $script, $caminhoImagem]);
+        } catch (Throwable $excecao) {
+            throw new ReconhecimentoPlacaException(
+                'Não foi possível executar o Python: '.Str::limit($this->textoUtf8($excecao->getMessage()), 800),
+                previous: $excecao,
+            );
         }
 
-        $ambiente = array_filter([
-            'TESSERACT_CMD' => $tesseract !== '' ? $tesseract : null,
-            'PYTHONIOENCODING' => 'utf-8',
-            'PYTHONUTF8' => '1',
-        ], static fn (?string $valor): bool => $valor !== null && $valor !== '');
-
-        $resultado = Process::timeout(max(5, (int) config('guarita.ocr_timeout_seconds', 90)))
-            ->idleTimeout(max(5, (int) config('guarita.ocr_idle_timeout_seconds', 30)))
-            ->env($ambiente)
-            ->path(dirname($script))
-            ->run([$python, $script, $caminhoImagem]);
-
         if ($resultado->failed()) {
-            $erro = trim($resultado->errorOutput()) ?: trim($resultado->output());
+            $erro = $this->textoUtf8($resultado->errorOutput() ?: $resultado->output());
 
             throw new ReconhecimentoPlacaException(
                 Str::limit($erro ?: 'O reconhecimento da placa falhou.', 1000),
             );
         }
 
-        $placa = $this->extrairPlaca($resultado->output());
-
-        if ($placa === null) {
-            throw new ReconhecimentoPlacaException('Nenhuma placa brasileira válida foi reconhecida.');
-        }
-
-        return $placa;
+        return $this->extrairPlaca($resultado->output());
     }
 
-    private function extrairPlaca(string $saida): ?string
+    private function extrairPlaca(string $saida): string
     {
-        $saida = trim($saida);
+        $saida = $this->textoUtf8($saida);
 
         if ($saida === '') {
-            return null;
+            throw new ReconhecimentoPlacaException('O Python não devolveu uma resposta.');
         }
 
         try {
-            $json = json_decode($saida, true, 512, JSON_THROW_ON_ERROR);
-
-            if (is_array($json) && isset($json['placa'])) {
-                $placa = Placa::normalizar((string) $json['placa']);
-
-                return Placa::valida($placa) ? $placa : null;
-            }
-        } catch (JsonException) {
-            // O script atual retorna texto simples; JSON também é aceito para evolução futura.
+            $resposta = json_decode($saida, true, 512, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (JsonException $excecao) {
+            throw new ReconhecimentoPlacaException(
+                'O Python devolveu uma resposta inválida.',
+                previous: $excecao,
+            );
         }
 
-        $linhas = array_reverse(array_filter(array_map(
-            'trim',
-            preg_split('/\R/', $saida) ?: [],
-        )));
-
-        foreach ($linhas as $linha) {
-            $placa = Placa::normalizar($linha);
-
-            if (Placa::valida($placa)) {
-                return $placa;
-            }
+        if (! is_array($resposta)) {
+            throw new ReconhecimentoPlacaException('O Python devolveu uma resposta inválida.');
         }
 
-        return null;
+        $placa = Placa::normalizar((string) ($resposta['placa'] ?? ''));
+
+        if (Placa::valida($placa)) {
+            return $placa;
+        }
+
+        $motivo = $this->textoUtf8((string) ($resposta['motivo'] ?? ''));
+
+        throw new ReconhecimentoPlacaException(
+            $motivo ?: 'Nenhuma placa brasileira válida foi reconhecida.',
+        );
+    }
+
+    private function textoUtf8(string $texto): string
+    {
+        $texto = trim($texto);
+
+        if ($texto === '' || mb_check_encoding($texto, 'UTF-8')) {
+            return $texto;
+        }
+
+        return trim(mb_scrub($texto, 'UTF-8'));
     }
 
     private function validarExecutavelConfigurado(string $executavel, string $nome): void

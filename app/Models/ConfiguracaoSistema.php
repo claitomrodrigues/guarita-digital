@@ -6,6 +6,7 @@ use App\Enums\TipoConfiguracao;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use JsonException;
+use Illuminate\Support\Facades\Cache;
 
 class ConfiguracaoSistema extends Model
 {
@@ -46,6 +47,20 @@ class ConfiguracaoSistema extends Model
             TipoConfiguracao::Json => $this->decodificarJson(),
             TipoConfiguracao::String => $this->valor,
         };
+    }
+
+    public static function obter(string $chave, mixed $padrao = null): mixed
+    {
+        return Cache::remember("configuracao:{$chave}", 300, function () use ($chave, $padrao): mixed {
+            $configuracao = self::query()->where('chave', $chave)->first();
+
+            return $configuracao?->valorConvertido() ?? $padrao;
+        });
+    }
+
+    public static function esquecer(string $chave): void
+    {
+        Cache::forget("configuracao:{$chave}");
     }
 
     private function decodificarJson(): mixed

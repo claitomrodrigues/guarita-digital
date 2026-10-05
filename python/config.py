@@ -1,7 +1,12 @@
-"""Parâmetros calibráveis do GuaritaDigital."""
+"""Parâmetros calibráveis do Guarita Digital."""
 
-QUADROS_ANTES = 3
-QUADROS_DEPOIS = 3
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+PASTA_PYTHON = Path(__file__).resolve().parent
+
 MELHORES_QUADROS = 4
 
 NITIDEZ_MINIMA = 45.0
@@ -17,8 +22,14 @@ QUADROS_PARA_CONFIRMAR = 2
 MARGEM_EMPATE = 0.10
 INTERVALO_DUPLICIDADE_SEGUNDOS = 20.0
 
-SALVAR_DIAGNOSTICO = True
-PASTA_DIAGNOSTICO = "diagnosticos"
+SALVAR_DIAGNOSTICO = False
+PASTA_DIAGNOSTICO = PASTA_PYTHON / "diagnosticos"
 
-REPOSITORIO_MODELO = "yasirfaizahmed/license-plate-object-detection"
-ARQUIVO_MODELO = "best.pt"
+REPOSITORIO_MODELO = os.getenv(
+    "GUARITA_REPOSITORIO_YOLO",
+    "yasirfaizahmed/license-plate-object-detection",
+)
+ARQUIVO_MODELO = os.getenv("GUARITA_ARQUIVO_YOLO", "best.pt")
+CAMINHO_MODELO = os.getenv("GUARITA_MODELO_YOLO", "").strip()
+MODELO_OCR = os.getenv("GUARITA_MODELO_OCR", "en_PP-OCRv5_mobile_rec")
+DISPOSITIVO = os.getenv("GUARITA_DISPOSITIVO", "cpu").strip() or "cpu"

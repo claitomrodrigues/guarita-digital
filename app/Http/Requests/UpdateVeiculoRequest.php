@@ -13,36 +13,34 @@ class UpdateVeiculoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $veiculo = $this->route('veiculo');
-
-        return $veiculo instanceof Veiculo
-            && ($this->user()?->can('update', $veiculo) ?? false);
+        return (bool) $this->user()?->ativo;
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('placa')) {
-            $this->merge(['placa' => Placa::normalizar((string) $this->input('placa'))]);
-        }
+        $this->merge([
+            'placa' => Placa::normalizar((string) $this->input('placa')),
+            'ativo' => $this->boolean('ativo'),
+            'autorizado' => $this->boolean('autorizado'),
+        ]);
     }
 
     public function rules(): array
     {
+        /** @var Veiculo $veiculo */
         $veiculo = $this->route('veiculo');
 
         return [
-            'pessoa_id' => ['nullable', 'integer', Rule::exists('pessoas', 'id')->whereNull('deleted_at')],
-            'placa' => ['sometimes', 'required', 'string', 'size:7', new PlacaBrasileira, Rule::unique('veiculos', 'placa')->ignore($veiculo)],
+            'pessoa_id' => ['required', 'integer', Rule::exists('pessoas', 'id')->whereNull('deleted_at')],
+            'placa' => ['required', 'string', 'size:7', new PlacaBrasileira, Rule::unique('veiculos', 'placa')->ignore($veiculo)],
             'marca' => ['nullable', 'string', 'max:80'],
-            'modelo' => ['nullable', 'string', 'max:100'],
+            'modelo' => ['required', 'string', 'max:100'],
             'cor' => ['nullable', 'string', 'max:50'],
-            'tipo' => ['sometimes', 'required', Rule::enum(TipoVeiculo::class)],
+            'tipo' => ['required', Rule::enum(TipoVeiculo::class)],
             'ano' => ['nullable', 'integer', 'min:1900', 'max:'.(now()->year + 1)],
-            'ativo' => ['sometimes', 'boolean'],
-            'autorizado' => ['sometimes', 'boolean'],
-            'validade_autorizacao' => ['nullable', 'date'],
-            'motivo_bloqueio' => ['nullable', 'string', 'max:255'],
-            'observacoes' => ['nullable', 'string', 'max:5000'],
+            'ativo' => ['required', 'boolean'],
+            'autorizado' => ['required', 'boolean'],
+            'observacoes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

@@ -2,13 +2,12 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "claitom/guarita-digital",
     "type": "project",
-    "description": "Backend profissional para controle de acesso veicular com Laravel, MySQL, OpenCV e Tesseract OCR.",
+    "description": "Sistema Laravel simples para cadastro de condutores e veículos do Guarita Digital.",
     "keywords": [
         "laravel",
         "controle de acesso",
-        "ocr",
-        "opencv",
-        "tesseract",
+        "condutores",
+        "veiculos",
         "placas veiculares"
     ],
     "license": "MIT",
@@ -42,13 +41,7 @@
         "setup": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
-            "@php artisan migrate --force",
-            "npm install --ignore-scripts",
-            "npm run build"
-        ],
-        "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "@php artisan migrate --seed --force"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",

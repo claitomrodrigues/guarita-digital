@@ -21,9 +21,9 @@ class EnsureUserIsActive
                 $request->session()->regenerateToken();
             }
 
-            return response()->json([
-                'message' => 'Usuário inativo.',
-            ], 403);
+            return redirect()
+                ->route('login')
+                ->withErrors(['login' => 'Este usuário está inativo.']);
         }
 
         return $next($request);

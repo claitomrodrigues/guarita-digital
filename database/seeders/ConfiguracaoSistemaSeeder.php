@@ -42,6 +42,22 @@ class ConfiguracaoSistemaSeeder extends Seeder
                 'descricao' => 'Intervalo usado para ignorar leituras repetidas da mesma placa.',
                 'publica' => false,
             ],
+            [
+                'chave' => 'confianca_ocr_minima',
+                'valor' => '0.45',
+                'tipo' => 'float',
+                'grupo' => 'reconhecimento',
+                'descricao' => 'Confiança mínima do PaddleOCR para permitir decisão automática.',
+                'publica' => false,
+            ],
+            [
+                'chave' => 'retencao_imagens_dias',
+                'valor' => '30',
+                'tipo' => 'integer',
+                'grupo' => 'privacidade',
+                'descricao' => 'Quantidade de dias que as imagens das capturas permanecerão armazenadas.',
+                'publica' => false,
+            ],
         ];
 
         foreach ($itens as $item) {

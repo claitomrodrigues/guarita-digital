@@ -4,9 +4,7 @@ namespace App\Models;
 
 use App\Enums\PerfilUsuario;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -18,6 +16,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name',
+        'matricula',
         'email',
         'password',
         'perfil',
@@ -51,50 +50,19 @@ class User extends Authenticatable
         $this->attributes['email'] = mb_strtolower(trim($valor), 'UTF-8');
     }
 
-    public function acessos(): HasMany
+    public function setMatriculaAttribute(?string $valor): void
     {
-        return $this->hasMany(Acesso::class);
-    }
-
-    public function logsAuditoria(): HasMany
-    {
-        return $this->hasMany(LogAuditoria::class);
-    }
-
-    public function scopeAtivos(Builder $query): Builder
-    {
-        return $query->where('ativo', true);
-    }
-
-    public function scopeDoPerfil(Builder $query, PerfilUsuario|string $perfil): Builder
-    {
-        return $query->where('perfil', $perfil instanceof PerfilUsuario ? $perfil->value : $perfil);
-    }
-
-    public function possuiPerfil(PerfilUsuario|string ...$perfis): bool
-    {
-        $perfilAtual = $this->perfil instanceof PerfilUsuario
-            ? $this->perfil->value
-            : (string) $this->perfil;
-
-        foreach ($perfis as $perfil) {
-            $valor = $perfil instanceof PerfilUsuario ? $perfil->value : $perfil;
-
-            if (hash_equals($perfilAtual, $valor)) {
-                return true;
-            }
-        }
-
-        return false;
+        $valor = $valor !== null ? trim($valor) : null;
+        $this->attributes['matricula'] = $valor !== '' ? $valor : null;
     }
 
     public function isAdministrador(): bool
     {
-        return $this->possuiPerfil(PerfilUsuario::Administrador);
+        return $this->perfil === PerfilUsuario::Administrador;
     }
 
     public function isSeguranca(): bool
     {
-        return $this->possuiPerfil(PerfilUsuario::Seguranca);
+        return $this->perfil === PerfilUsuario::Seguranca;
     }
 }

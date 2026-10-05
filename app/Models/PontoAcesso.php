@@ -22,13 +22,19 @@ class PontoAcesso extends Model
         'localizacao',
         'descricao',
         'ativo',
+        'camera_token_hash',
+        'ultima_comunicacao_em',
+        'versao_camera',
     ];
+
+    protected $hidden = ['camera_token_hash'];
 
     protected function casts(): array
     {
         return [
             'sentido' => SentidoPontoAcesso::class,
             'ativo' => 'boolean',
+            'ultima_comunicacao_em' => 'datetime',
         ];
     }
 
@@ -50,5 +56,10 @@ class PontoAcesso extends Model
     public function scopeAtivos(Builder $query): Builder
     {
         return $query->where('ativo', true);
+    }
+
+    public function definirTokenCamera(string $token): void
+    {
+        $this->forceFill(['camera_token_hash' => hash('sha256', $token)])->save();
     }
 }

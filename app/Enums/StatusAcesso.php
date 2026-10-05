@@ -12,6 +12,7 @@ enum StatusAcesso: string
     case NaoCadastrado = 'nao_cadastrado';
     case Bloqueado = 'bloqueado';
     case LiberadoManualmente = 'liberado_manualmente';
+    case LeituraInconclusiva = 'leitura_inconclusiva';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum StatusAcesso: string
             self::NaoCadastrado => 'Não cadastrado',
             self::Bloqueado => 'Bloqueado',
             self::LiberadoManualmente => 'Liberado manualmente',
+            self::LeituraInconclusiva => 'Leitura inconclusiva',
         };
     }
 

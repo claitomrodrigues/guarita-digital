@@ -70,4 +70,26 @@ class AcessoServiceTest extends TestCase
         $this->assertSame($primeiro->acesso->id, $segundo->acesso->id);
         $this->assertDatabaseCount('acessos', 1);
     }
+
+    public function test_baixa_confianca_nunca_autoriza_automaticamente(): void
+    {
+        $usuario = User::factory()->create(['perfil' => PerfilUsuario::Seguranca]);
+        $pessoa = Pessoa::query()->create(['nome' => 'Pessoa Teste', 'tipo_vinculo' => 'servidor', 'ativo' => true]);
+        Veiculo::query()->create([
+            'pessoa_id' => $pessoa->id,
+            'placa' => 'ABC1D23',
+            'tipo' => 'carro',
+            'ativo' => true,
+            'autorizado' => true,
+        ]);
+
+        $acesso = app(AcessoService::class)->registrarReconhecimento(
+            placa: 'ABC1D23',
+            usuario: $usuario,
+            confianca: 0.20,
+        )->acesso;
+
+        $this->assertSame(StatusAcesso::LeituraInconclusiva, $acesso->status);
+        $this->assertFalse($acesso->permitePassagem());
+    }
 }

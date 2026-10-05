@@ -1,5 +1,5 @@
 # Copie para dataset.yaml após preparar as imagens e rótulos no formato YOLO.
-path: dataset
+path: ./dataset
 train: images/train
 val: images/val
 test: images/test

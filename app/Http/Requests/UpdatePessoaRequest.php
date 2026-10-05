@@ -13,54 +13,35 @@ class UpdatePessoaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $pessoa = $this->route('pessoa');
-
-        return $pessoa instanceof Pessoa
-            && ($this->user()?->can('update', $pessoa) ?? false);
+        return (bool) $this->user()?->ativo;
     }
 
     protected function prepareForValidation(): void
     {
-        $dados = [];
-
-        if ($this->has('nome')) {
-            $dados['nome'] = trim((string) $this->input('nome'));
-        }
-
-        if ($this->has('cpf')) {
-            $dados['cpf'] = Cpf::normalizar($this->input('cpf'));
-        }
-
-        if ($this->has('matricula')) {
-            $dados['matricula'] = $this->filled('matricula') ? trim((string) $this->input('matricula')) : null;
-        }
-
-        if ($this->has('email')) {
-            $dados['email'] = $this->filled('email')
-                ? mb_strtolower(trim((string) $this->input('email')), 'UTF-8')
-                : null;
-        }
-
-        if ($this->has('telefone')) {
-            $dados['telefone'] = $this->filled('telefone') ? trim((string) $this->input('telefone')) : null;
-        }
-
-        $this->merge($dados);
+        $this->merge([
+            'nome' => trim((string) $this->input('nome')),
+            'cpf' => Cpf::normalizar($this->input('cpf')),
+            'matricula' => $this->filled('matricula') ? trim((string) $this->input('matricula')) : null,
+            'email' => $this->filled('email') ? mb_strtolower(trim((string) $this->input('email')), 'UTF-8') : null,
+            'telefone' => $this->filled('telefone') ? trim((string) $this->input('telefone')) : null,
+            'ativo' => $this->boolean('ativo'),
+        ]);
     }
 
     public function rules(): array
     {
+        /** @var Pessoa $pessoa */
         $pessoa = $this->route('pessoa');
 
         return [
-            'nome' => ['sometimes', 'required', 'string', 'min:2', 'max:150'],
+            'nome' => ['required', 'string', 'min:2', 'max:150'],
             'cpf' => ['nullable', 'digits:11', new CpfValido, Rule::unique('pessoas', 'cpf')->ignore($pessoa)],
             'matricula' => ['nullable', 'string', 'max:40', Rule::unique('pessoas', 'matricula')->ignore($pessoa)],
             'email' => ['nullable', 'email:rfc', 'max:150'],
             'telefone' => ['nullable', 'string', 'max:20'],
-            'tipo_vinculo' => ['sometimes', 'required', Rule::enum(TipoVinculo::class)],
-            'ativo' => ['sometimes', 'boolean'],
-            'observacoes' => ['nullable', 'string', 'max:5000'],
+            'tipo_vinculo' => ['required', Rule::enum(TipoVinculo::class)],
+            'ativo' => ['required', 'boolean'],
+            'observacoes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

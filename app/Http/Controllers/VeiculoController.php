@@ -2,80 +2,89 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ListVeiculosRequest;
+use App\Enums\TipoVeiculo;
 use App\Http\Requests\StoreVeiculoRequest;
 use App\Http\Requests\UpdateVeiculoRequest;
-use App\Http\Resources\VeiculoResource;
+use App\Models\Pessoa;
 use App\Models\Veiculo;
 use App\Support\Placa;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class VeiculoController extends Controller
 {
-    public function index(ListVeiculosRequest $request): AnonymousResourceCollection
+    public function index(Request $request): View
     {
-        $dados = $request->validated();
-        $query = Veiculo::query()->with('pessoa')->latest('updated_at');
+        $busca = trim((string) $request->query('q'));
 
-        if (filled($dados['q'] ?? null)) {
-            $busca = trim($dados['q']);
-            $placa = Placa::normalizar($busca);
+        $veiculos = Veiculo::query()
+            ->with('pessoa')
+            ->when($busca !== '', function (Builder $query) use ($busca): void {
+                $placa = Placa::normalizar($busca);
 
-            $query->where(function (Builder $query) use ($busca, $placa): void {
-                $query
-                    ->when($placa !== '', static fn (Builder $query): Builder => $query->where('placa', 'like', "%{$placa}%"))
-                    ->orWhere('marca', 'like', "%{$busca}%")
-                    ->orWhere('modelo', 'like', "%{$busca}%")
-                    ->orWhere('cor', 'like', "%{$busca}%")
-                    ->orWhereHas('pessoa', static fn (Builder $pessoa): Builder => $pessoa->where('nome', 'like', "%{$busca}%"));
-            });
-        }
+                $query->where(function (Builder $query) use ($busca, $placa): void {
+                    $query
+                        ->where('placa', 'like', "%{$placa}%")
+                        ->orWhere('marca', 'like', "%{$busca}%")
+                        ->orWhere('modelo', 'like', "%{$busca}%")
+                        ->orWhereHas('pessoa', fn (Builder $pessoa): Builder => $pessoa->where('nome', 'like', "%{$busca}%"));
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
 
-        foreach (['pessoa_id', 'tipo'] as $campo) {
-            if (isset($dados[$campo])) {
-                $query->where($campo, $dados[$campo]);
-            }
-        }
-
-        foreach (['ativo', 'autorizado'] as $campo) {
-            if (array_key_exists($campo, $dados)) {
-                $query->where($campo, (bool) $dados[$campo]);
-            }
-        }
-
-        return VeiculoResource::collection($query->paginate($dados['per_page'] ?? 15)->withQueryString());
+        return view('veiculos.index', compact('veiculos', 'busca'));
     }
 
-    public function store(StoreVeiculoRequest $request): JsonResponse
+    public function create(): View
     {
-        $veiculo = Veiculo::query()->create($request->validated());
-
-        return (new VeiculoResource($veiculo->load('pessoa')))
-            ->response()
-            ->setStatusCode(201);
+        return view('veiculos.create', $this->dadosFormulario());
     }
 
-    public function show(Veiculo $veiculo): VeiculoResource
+    public function store(StoreVeiculoRequest $request): RedirectResponse
     {
-        $this->authorize('view', $veiculo);
+        Veiculo::query()->create($request->validated());
 
-        return new VeiculoResource($veiculo->load('pessoa'));
+        return redirect()
+            ->route('veiculos.index')
+            ->with('success', 'Veículo cadastrado com sucesso.');
     }
 
-    public function update(UpdateVeiculoRequest $request, Veiculo $veiculo): VeiculoResource
+    public function edit(Veiculo $veiculo): View
+    {
+        return view('veiculos.edit', [
+            ...$this->dadosFormulario(),
+            'veiculo' => $veiculo,
+        ]);
+    }
+
+    public function update(UpdateVeiculoRequest $request, Veiculo $veiculo): RedirectResponse
     {
         $veiculo->update($request->validated());
 
-        return new VeiculoResource($veiculo->refresh()->load('pessoa'));
+        return redirect()
+            ->route('veiculos.index')
+            ->with('success', 'Veículo atualizado com sucesso.');
     }
 
-    public function destroy(Veiculo $veiculo): JsonResponse
+    public function destroy(Veiculo $veiculo): RedirectResponse
     {
-        $this->authorize('delete', $veiculo);
         $veiculo->delete();
 
-        return response()->json(status: 204);
+        return redirect()
+            ->route('veiculos.index')
+            ->with('success', 'Veículo excluído com sucesso.');
+    }
+
+    /** @return array{condutores: \Illuminate\Database\Eloquent\Collection, tiposVeiculo: array} */
+    private function dadosFormulario(): array
+    {
+        return [
+            'condutores' => Pessoa::query()->orderBy('nome')->get(),
+            'tiposVeiculo' => TipoVeiculo::cases(),
+        ];
     }
 }

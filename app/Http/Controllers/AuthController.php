@@ -3,82 +3,50 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
-use App\Http\Resources\UserResource;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginRequest $request): RedirectResponse
     {
-        $chave = $this->chaveLimitador($request);
-        $maximoTentativas = max(3, (int) config('guarita.login_max_attempts', 5));
+        $login = (string) $request->validated('login');
+        $campo = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'matricula';
 
-        if (RateLimiter::tooManyAttempts($chave, $maximoTentativas)) {
-            $segundos = RateLimiter::availableIn($chave);
-
-            throw ValidationException::withMessages([
-                'email' => ["Muitas tentativas de acesso. Tente novamente em {$segundos} segundos."],
-            ]);
-        }
-
-        $credenciais = $request->safe()->only(['email', 'password']);
-
-        if (! Auth::attempt($credenciais, $request->boolean('remember'))) {
-            RateLimiter::hit($chave, max(30, (int) config('guarita.login_decay_seconds', 60)));
-
-            throw ValidationException::withMessages([
-                'email' => ['E-mail ou senha inválidos.'],
-            ]);
+        if (! Auth::attempt([
+            $campo => $login,
+            'password' => $request->validated('password'),
+        ], $request->boolean('remember'))) {
+            return back()
+                ->withErrors(['login' => 'Matrícula/e-mail ou senha inválidos.'])
+                ->withInput($request->only('login'));
         }
 
         $request->session()->regenerate();
-
-        /** @var User $usuario */
         $usuario = $request->user();
 
-        if (! $usuario->ativo || $usuario->trashed()) {
+        if (! $usuario || ! $usuario->ativo || $usuario->trashed()) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return response()->json([
-                'message' => 'Este usuário está inativo.',
-            ], 403);
+            return back()
+                ->withErrors(['login' => 'Este usuário está inativo.'])
+                ->withInput($request->only('login'));
         }
 
-        RateLimiter::clear($chave);
         $usuario->forceFill(['ultimo_login_em' => now()])->saveQuietly();
 
-        return response()->json([
-            'message' => 'Login realizado com sucesso.',
-            'data' => new UserResource($usuario),
-        ]);
+        return redirect()->intended(route('home'));
     }
 
-    public function me(Request $request): UserResource
-    {
-        return new UserResource($request->user());
-    }
-
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return response()->json([
-            'message' => 'Sessão encerrada com sucesso.',
-        ]);
-    }
-
-    private function chaveLimitador(LoginRequest $request): string
-    {
-        return Str::transliterate(Str::lower((string) $request->input('email')).'|'.$request->ip());
+        return redirect()->route('login');
     }
 }

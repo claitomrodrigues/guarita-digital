@@ -1,141 +1,98 @@
 # Backend do Guarita Digital
 
-## Arquitetura
+## Fluxo principal
 
-```text
-Navegador/câmera
-      ↓ imagem
-Laravel Controller
-      ↓
-ReconhecimentoPlacaService
-      ↓ processo externo
-python/placa.py
-      ↓
-OpenCV + Tesseract OCR
-      ↓ placa normalizada
-AcessoService
-      ↓
-MySQL
+1. `camera.py` captura uma sequência de quadros.
+2. YOLO localiza a placa e PaddleOCR reconhece os caracteres.
+3. O Python envia a leitura confirmada para `POST /api/v1/camera/reconhecimentos`.
+4. O Laravel autentica a câmera, valida a captura e consulta o veículo.
+5. Veículos autorizados geram acesso autorizado; placas desconhecidas ou bloqueadas geram triagem.
+
+O Laravel não executa o OCR. Isso evita duplicação de processamento e permite instalar a câmera em outro computador.
+
+## Autenticação
+
+- Site: sessão Laravel e proteção CSRF.
+- Câmera: `Authorization: Bearer TOKEN`, com um token diferente por ponto de acesso.
+- O token é armazenado somente como SHA-256 e exibido uma única vez quando gerado.
+
+## API da câmera
+
+### Reconhecimento
+
+`POST /api/v1/camera/reconhecimentos`
+
+Campos JSON ou `multipart/form-data`:
+
+```json
+{
+  "capture_id": "ENTRADA-20260821143520-a1b2c3d4",
+  "placa": "ABC1D23",
+  "confianca_ocr": 0.93,
+  "confianca_yolo": 0.88,
+  "modelo_placa": "mercosul",
+  "quadros_confirmados": 3,
+  "capturado_em": "2026-08-21T14:35:20-03:00",
+  "versao_camera": "2.0.0"
+}
 ```
 
-O Laravel concentra autenticação, autorização, validação, cadastros, histórico e auditoria. O Python tem uma única responsabilidade: reconhecer a placa e imprimir um valor válido, como `FJB4E12` ou `CDU-9598`.
+`capture_id` torna a operação idempotente: reenviar a mesma captura devolve o registro existente.
 
-## Organização do diretório `app`
+### Heartbeat
 
-- `Enums`: valores permitidos e rótulos para o frontend;
-- `Models`: entidades Eloquent, casts, relacionamentos e scopes;
-- `Policies`: autorização independente das rotas;
-- `Http/Requests`: validação e normalização das entradas;
-- `Http/Resources`: formato estável das respostas JSON;
-- `Services`: regras de acesso, auditoria e integração OCR;
-- `Rules`: validações reutilizáveis de CPF e placa;
-- `Support`: normalização e formatação de CPF/placa;
-- `Observers`: auditoria automática dos cadastros.
+`POST /api/v1/camera/heartbeat`
 
-## Banco de dados
+Atualiza a última comunicação e permite indicar câmeras online no painel.
 
-Tabelas de domínio:
+## Rotas autenticadas do site
 
-- `users`: duas contas, administrador e segurança;
-- `pessoas`: proprietários e vínculos institucionais;
-- `veiculos`: veículos e regras de autorização;
-- `pontos_acesso`: guaritas e sentidos permitidos;
-- `acessos`: entradas, saídas, tentativas e imagens;
-- `logs_auditoria`: alterações administrativas;
-- `configuracoes_sistema`: parâmetros exibidos pela aplicação.
+- `POST /api/login`, `POST /api/logout`, `GET /api/me`;
+- CRUD de `/api/pessoas` e `/api/veiculos`;
+- consulta e registro manual em `/api/acessos`;
+- `/api/triagens` e `PATCH /api/triagens/{id}/concluir`;
+- CRUD de `/api/pontos-acesso` e geração do token da câmera;
+- CRUD administrativo de `/api/usuarios`;
+- `GET /api/dashboard`;
+- `GET /api/relatorios/acessos.csv`;
+- `GET /api/auditoria`.
 
-A placa é sempre armazenada em maiúsculas e sem hífen. Exemplos: `CDU9598` e `FJB4E12`.
+## Regras essenciais
 
-## Regras de autorização
+- placas são armazenadas em maiúsculas e sem hífen;
+- cada ponto deve indicar entrada, saída ou ambos;
+- `capture_id` não pode ser processado duas vezes;
+- placas desconhecidas e bloqueadas criam uma triagem pendente;
+- somente uma triagem pendente é criada por acesso;
+- uma triagem autorizada altera o acesso para liberação manual;
+- toda liberação manual registra o usuário responsável;
+- imagens ficam no disco privado e são acessadas apenas por rota autorizada;
+- acessos e triagens não são excluídos pelo painel.
 
-| Recurso | Administrador | Segurança |
-|---|---:|---:|
-| Consultar pessoas e veículos | Sim | Sim |
-| Alterar cadastros | Sim | Não |
-| Reconhecer e registrar acesso | Sim | Sim |
-| Liberar acesso manualmente | Sim | Sim |
-| Gerenciar pontos de acesso | Sim | Não |
-| Gerenciar contas | Sim | Não |
-| Configurações e auditoria | Sim | Não |
+## Segurança de arquivos
 
-As rotas possuem middleware, mas as Policies também são verificadas nos Form Requests e Controllers. Assim, uma rota adicionada incorretamente não ignora automaticamente as permissões.
+Não versionar nem compartilhar:
 
-## Endpoints principais
+- `.env`;
+- `credenciais.txt`;
+- `vendor/`;
+- `python/.venv/`;
+- `database/database.sqlite`;
+- capturas e diagnósticos.
 
-### Públicos
+## Frontend
 
-- `GET /api/health`
-- `GET /api/configuracoes-publicas`
-- `POST /api/login`
+O painel está disponível em `/sistema` e utiliza sessão Laravel com CSRF. As telas consomem os mesmos endpoints documentados neste arquivo e respeitam as Policies do backend. Recursos administrativos são ocultados para vigilantes e continuam protegidos no servidor.
 
-### Autenticados
-
-- `GET /api/me`
-- `POST /api/logout`
-- `GET /api/meta`
-- `GET /api/dashboard`
-- `GET /api/pessoas`
-- `GET /api/veiculos`
-- `GET /api/acessos`
-- `GET /api/pontos-acesso`
-- `POST /api/reconhecimento/placa`
-- `POST /api/acessos/manual`
-- `PATCH /api/acessos/{acesso}/liberar`
-
-### Exclusivos do administrador
-
-- alterações em pessoas, veículos e pontos de acesso;
-- consulta e atualização das duas contas;
-- configurações do sistema;
-- auditoria.
-
-## Reconhecimento
-
-Envie a captura como `multipart/form-data` no campo `imagem`:
-
-```text
-POST /api/reconhecimento/placa
-imagem: arquivo JPG/PNG/WebP
-ponto_acesso_id: opcional
-tipo: entrada|saida (opcional quando o ponto define o sentido)
-observacoes: opcional
-```
-
-A imagem é salva em `storage/app/private/capturas/AAAA/MM/DD`. Em erro ou leitura duplicada, a captura nova é removida. Em sucesso, o acesso mantém o caminho da imagem para consulta autenticada.
-
-## Duplicidade e concorrência
-
-O `AcessoService` usa:
-
-1. lock de cache baseado no hash da placa;
-2. transação de banco;
-3. bloqueio pessimista no último acesso;
-4. janela configurável de duplicidade.
-
-Isso evita que duas requisições simultâneas registrem a mesma passagem.
-
-## Configurações do `.env`
-
-```env
-PYTHON_EXECUTABLE="C:\laragon\www\guarita-digital\python\.venv\Scripts\python.exe"
-PLACA_SCRIPT="C:\laragon\www\guarita-digital\python\placa.py"
-TESSERACT_EXECUTABLE="C:\Program Files\Tesseract-OCR\tesseract.exe"
-OCR_TIMEOUT_SECONDS=90
-OCR_IDLE_TIMEOUT_SECONDS=30
-MAX_CAPTURE_KB=10240
-ACESSO_DUPLICATE_WINDOW_SECONDS=20
-ACESSO_LOCK_SECONDS=15
-ACESSO_LOCK_WAIT_SECONDS=5
-CAPTURAS_DISK=local
-```
+O frontend inclui dashboard, movimentações, triagens, pessoas, veículos, pontos de acesso, usuários, relatórios CSV, auditoria, configurações e recuperação de senha.
 
 ## Verificação
 
 ```powershell
+composer install
 php artisan optimize:clear
 php artisan migrate:fresh --seed
 php artisan route:list
 php artisan test
+python python\testar.py
 ```
-
-O PHP do Laragon deve ter `pdo_mysql`, `mbstring`, `xml`, `openssl` e `fileinfo` habilitados.

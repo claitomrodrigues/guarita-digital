@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Veiculo extends Model
@@ -25,8 +24,6 @@ class Veiculo extends Model
         'ano',
         'ativo',
         'autorizado',
-        'validade_autorizacao',
-        'motivo_bloqueio',
         'observacoes',
     ];
 
@@ -37,7 +34,6 @@ class Veiculo extends Model
             'ano' => 'integer',
             'ativo' => 'boolean',
             'autorizado' => 'boolean',
-            'validade_autorizacao' => 'date',
         ];
     }
 
@@ -78,12 +74,7 @@ class Veiculo extends Model
 
     public function pessoa(): BelongsTo
     {
-        return $this->belongsTo(Pessoa::class)->withTrashed();
-    }
-
-    public function acessos(): HasMany
-    {
-        return $this->hasMany(Acesso::class);
+        return $this->belongsTo(Pessoa::class);
     }
 
     public function scopeAtivos(Builder $query): Builder
@@ -96,46 +87,12 @@ class Veiculo extends Model
         return $query->where('autorizado', true);
     }
 
-    public function scopeAptosAoAcesso(Builder $query): Builder
-    {
-        return $query
-            ->where('ativo', true)
-            ->where('autorizado', true)
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereNull('validade_autorizacao')
-                    ->orWhereDate('validade_autorizacao', '>=', today());
-            })
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereNull('pessoa_id')
-                    ->orWhereHas('pessoa', static fn (Builder $pessoa): Builder => $pessoa
-                        ->whereNull('deleted_at')
-                        ->where('ativo', true));
-            });
-    }
-
     public function estaAutorizado(): bool
     {
-        if ($this->trashed() || ! $this->ativo || ! $this->autorizado) {
-            return false;
-        }
-
-        if ($this->validade_autorizacao?->lt(today())) {
-            return false;
-        }
-
-        if ($this->pessoa_id === null) {
-            return true;
-        }
-
-        if (! $this->relationLoaded('pessoa')) {
-            $this->load('pessoa');
-        }
-
-        return $this->pessoa !== null
-            && ! $this->pessoa->trashed()
-            && $this->pessoa->ativo;
+        return ! $this->trashed()
+            && $this->ativo
+            && $this->autorizado
+            && (bool) $this->pessoa?->ativo;
     }
 
     private function limparTextoOpcional(?string $valor): ?string

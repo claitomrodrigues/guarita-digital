@@ -39,4 +39,21 @@ class PermissionsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.nome', 'Pessoa Teste');
     }
+
+    public function test_administrador_pode_criar_mais_de_um_vigilante(): void
+    {
+        $administrador = User::factory()->create(['perfil' => PerfilUsuario::Administrador]);
+
+        foreach ([1, 2] as $numero) {
+            $this->actingAs($administrador)->postJson('/api/usuarios', [
+                'name' => "Vigilante {$numero}",
+                'email' => "vigilante{$numero}@teste.local",
+                'password' => 'SenhaForte123',
+                'password_confirmation' => 'SenhaForte123',
+                'perfil' => PerfilUsuario::Seguranca->value,
+            ])->assertCreated();
+        }
+
+        $this->assertDatabaseCount('users', 3);
+    }
 }

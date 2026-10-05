@@ -9,6 +9,7 @@ use App\Http\Resources\PontoAcessoResource;
 use App\Models\PontoAcesso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Str;
 
 class PontoAcessoController extends Controller
 {
@@ -67,5 +68,17 @@ class PontoAcessoController extends Controller
         $ponto_acesso->delete();
 
         return response()->json(status: 204);
+    }
+
+    public function gerarToken(PontoAcesso $ponto_acesso): JsonResponse
+    {
+        $this->authorize('update', $ponto_acesso);
+        $token = 'gd_'.Str::random(64);
+        $ponto_acesso->definirTokenCamera($token);
+
+        return response()->json([
+            'message' => 'Token gerado. Copie agora; ele não será exibido novamente.',
+            'token' => $token,
+        ]);
     }
 }

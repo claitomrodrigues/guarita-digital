@@ -11,23 +11,12 @@ class UsuariosSistemaSeeder extends Seeder
     public function run(): void
     {
         User::withTrashed()->updateOrCreate(
-            ['perfil' => PerfilUsuario::Administrador],
+            ['email' => env('ADMIN_EMAIL', 'admin@guarita.local')],
             [
                 'name' => env('ADMIN_NAME', 'Administrador'),
-                'email' => env('ADMIN_EMAIL', 'admin@guarita.local'),
+                'matricula' => env('ADMIN_MATRICULA', 'admin'),
+                'perfil' => PerfilUsuario::Administrador,
                 'password' => env('ADMIN_PASSWORD', 'Guarita@2026'),
-                'ativo' => true,
-                'email_verified_at' => now(),
-                'deleted_at' => null,
-            ],
-        );
-
-        User::withTrashed()->updateOrCreate(
-            ['perfil' => PerfilUsuario::Seguranca],
-            [
-                'name' => env('SEGURANCA_NAME', 'Segurança da Guarita'),
-                'email' => env('SEGURANCA_EMAIL', 'seguranca@guarita.local'),
-                'password' => env('SEGURANCA_PASSWORD', 'Seguranca@2026'),
                 'ativo' => true,
                 'email_verified_at' => now(),
                 'deleted_at' => null,

@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+credenciais.txt
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -28,4 +29,6 @@ Thumbs.db
 
 /python/.venv/
 /python/__pycache__/
+/python/diagnosticos/
+/database/database.sqlite
 *.pyc

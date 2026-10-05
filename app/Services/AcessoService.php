@@ -11,6 +11,7 @@ use App\Models\Acesso;
 use App\Models\PontoAcesso;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Models\ConfiguracaoSistema;
 use App\Support\Placa;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -28,11 +29,16 @@ class AcessoService
 
     public function registrarReconhecimento(
         string $placa,
-        User $usuario,
+        ?User $usuario = null,
         ?PontoAcesso $pontoAcesso = null,
         ?TipoAcesso $tipoSolicitado = null,
         ?string $imagem = null,
         ?float $confianca = null,
+        ?float $confiancaYolo = null,
+        ?string $captureId = null,
+        ?int $quadrosConfirmados = null,
+        ?string $modeloPlaca = null,
+        CarbonInterface|string|null $dataHora = null,
         ?string $observacoes = null,
         ?array $metadata = null,
     ): RegistroAcessoResultado {
@@ -44,6 +50,11 @@ class AcessoService
             tipoSolicitado: $tipoSolicitado,
             imagem: $imagem,
             confianca: $confianca,
+            confiancaYolo: $confiancaYolo,
+            captureId: $captureId,
+            quadrosConfirmados: $quadrosConfirmados,
+            modeloPlaca: $modeloPlaca,
+            dataHora: $dataHora,
             observacoes: $observacoes,
             metadata: $metadata,
         );
@@ -52,7 +63,7 @@ class AcessoService
     public function registrarManual(
         string $placa,
         TipoAcesso $tipo,
-        User $usuario,
+        ?User $usuario,
         ?PontoAcesso $pontoAcesso = null,
         CarbonInterface|string|null $dataHora = null,
         bool $liberarManualmente = false,
@@ -120,13 +131,17 @@ class AcessoService
 
     private function registrar(
         string $placa,
-        User $usuario,
+        ?User $usuario,
         OrigemAcesso $origem,
         ?PontoAcesso $pontoAcesso = null,
         ?TipoAcesso $tipoSolicitado = null,
         CarbonInterface|string|null $dataHora = null,
         ?string $imagem = null,
         ?float $confianca = null,
+        ?float $confiancaYolo = null,
+        ?string $captureId = null,
+        ?int $quadrosConfirmados = null,
+        ?string $modeloPlaca = null,
         bool $liberarManualmente = false,
         ?string $observacoes = null,
         ?array $metadata = null,
@@ -138,7 +153,7 @@ class AcessoService
             throw new DomainException('A placa informada não possui um formato brasileiro válido.');
         }
 
-        if (! $usuario->ativo) {
+        if ($usuario !== null && ! $usuario->ativo) {
             throw new DomainException('O usuário responsável pelo registro está inativo.');
         }
 
@@ -164,7 +179,21 @@ class AcessoService
                     $observacoes,
                     $metadata,
                     $aplicarDuplicidade,
+                    $confiancaYolo,
+                    $captureId,
+                    $quadrosConfirmados,
+                    $modeloPlaca,
                 ): RegistroAcessoResultado {
+                    if ($captureId !== null) {
+                        $existente = Acesso::query()->where('capture_id', $captureId)->first();
+
+                        if ($existente !== null) {
+                            return new RegistroAcessoResultado(
+                                acesso: $existente->load(['veiculo.pessoa', 'pessoa', 'usuario', 'pontoAcesso']),
+                                duplicado: true,
+                            );
+                        }
+                    }
                     $ultimo = Acesso::query()
                         ->daPlaca($placa)
                         ->latest('data_hora')
@@ -191,7 +220,7 @@ class AcessoService
                         ->where('placa', $placa)
                         ->first();
 
-                    $status = $this->resolverStatus($veiculo, $liberarManualmente);
+                    $status = $this->resolverStatus($veiculo, $liberarManualmente, $confianca, $origem, $tipo);
                     $momento = $dataHora instanceof CarbonInterface
                         ? CarbonImmutable::instance($dataHora)
                         : ($dataHora !== null ? CarbonImmutable::parse($dataHora) : now());
@@ -199,7 +228,8 @@ class AcessoService
                     $acesso = Acesso::query()->create([
                         'veiculo_id' => $veiculo?->id,
                         'pessoa_id' => $veiculo?->pessoa_id,
-                        'user_id' => $usuario->id,
+                        'user_id' => $usuario?->id,
+                        'capture_id' => $captureId,
                         'ponto_acesso_id' => $pontoAcesso?->id,
                         'placa_reconhecida' => $placa,
                         'tipo' => $tipo,
@@ -208,6 +238,9 @@ class AcessoService
                         'data_hora' => $momento,
                         'imagem' => $imagem,
                         'confianca' => $confianca,
+                        'confianca_yolo' => $confiancaYolo,
+                        'quadros_confirmados' => $quadrosConfirmados,
+                        'modelo_placa' => $modeloPlaca,
                         'observacoes' => $observacoes,
                         'metadata' => array_filter([
                             'veiculo_encontrado' => $veiculo !== null,
@@ -228,10 +261,25 @@ class AcessoService
         }
     }
 
-    private function resolverStatus(?Veiculo $veiculo, bool $liberarManualmente): StatusAcesso
+    private function resolverStatus(
+        ?Veiculo $veiculo,
+        bool $liberarManualmente,
+        ?float $confianca,
+        OrigemAcesso $origem,
+        TipoAcesso $tipo,
+    ): StatusAcesso
     {
+        if ($tipo === TipoAcesso::Saida) {
+            return StatusAcesso::Autorizado;
+        }
+
         if ($liberarManualmente) {
             return StatusAcesso::LiberadoManualmente;
+        }
+
+        $confiancaMinima = (float) ConfiguracaoSistema::obter('confianca_ocr_minima', config('guarita.min_ocr_confidence', 0.45));
+        if ($origem === OrigemAcesso::Ocr && $confianca !== null && $confianca < $confiancaMinima) {
+            return StatusAcesso::LeituraInconclusiva;
         }
 
         return match (true) {
@@ -301,7 +349,7 @@ class AcessoService
             return false;
         }
 
-        $segundos = max(0, (int) config('guarita.duplicate_window_seconds', 20));
+        $segundos = max(0, (int) ConfiguracaoSistema::obter('janela_duplicidade_segundos', config('guarita.duplicate_window_seconds', 20)));
 
         return $segundos > 0 && $acesso->data_hora->gte(now()->subSeconds($segundos));
     }

@@ -14,6 +14,7 @@ class AcessoResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'capture_id' => $this->capture_id,
             'placa_reconhecida' => $this->placa_reconhecida,
             'placa_formatada' => Placa::formatar($this->placa_reconhecida),
             'padrao_placa' => Placa::tipo($this->placa_reconhecida),
@@ -26,6 +27,9 @@ class AcessoResource extends JsonResource
             'origem_label' => $this->origem?->label(),
             'data_hora' => $this->data_hora?->toIso8601String(),
             'confianca' => $this->confianca !== null ? (float) $this->confianca : null,
+            'confianca_yolo' => $this->confianca_yolo !== null ? (float) $this->confianca_yolo : null,
+            'quadros_confirmados' => $this->quadros_confirmados,
+            'modelo_placa' => $this->modelo_placa,
             'observacoes' => $this->observacoes,
             'tem_imagem' => filled($this->imagem),
             'imagem_url' => filled($this->imagem) ? route('acessos.imagem', $this->resource) : null,
@@ -34,6 +38,7 @@ class AcessoResource extends JsonResource
             'pessoa' => new PessoaResource($this->whenLoaded('pessoa')),
             'usuario' => new UserResource($this->whenLoaded('usuario')),
             'ponto_acesso' => new PontoAcessoResource($this->whenLoaded('pontoAcesso')),
+            'triagem' => new TriagemResource($this->whenLoaded('triagem')),
             'metadata' => $this->when(
                 $request->user()?->isAdministrador() ?? false,
                 $this->metadata,

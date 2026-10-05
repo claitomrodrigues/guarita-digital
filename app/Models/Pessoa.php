@@ -66,11 +66,6 @@ class Pessoa extends Model
         return $this->hasMany(Veiculo::class);
     }
 
-    public function acessos(): HasMany
-    {
-        return $this->hasMany(Acesso::class);
-    }
-
     public function scopeAtivas(Builder $query): Builder
     {
         return $query->where('ativo', true);

@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Enums\TipoVeiculo;
-use App\Models\Veiculo;
 use App\Rules\PlacaBrasileira;
 use App\Support\Placa;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,31 +12,31 @@ class StoreVeiculoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', Veiculo::class) ?? false;
+        return (bool) $this->user()?->ativo;
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('placa')) {
-            $this->merge(['placa' => Placa::normalizar((string) $this->input('placa'))]);
-        }
+        $this->merge([
+            'placa' => Placa::normalizar((string) $this->input('placa')),
+            'ativo' => $this->boolean('ativo'),
+            'autorizado' => $this->boolean('autorizado'),
+        ]);
     }
 
     public function rules(): array
     {
         return [
-            'pessoa_id' => ['nullable', 'integer', Rule::exists('pessoas', 'id')->whereNull('deleted_at')],
+            'pessoa_id' => ['required', 'integer', Rule::exists('pessoas', 'id')->whereNull('deleted_at')],
             'placa' => ['required', 'string', 'size:7', new PlacaBrasileira, Rule::unique('veiculos', 'placa')],
             'marca' => ['nullable', 'string', 'max:80'],
-            'modelo' => ['nullable', 'string', 'max:100'],
+            'modelo' => ['required', 'string', 'max:100'],
             'cor' => ['nullable', 'string', 'max:50'],
             'tipo' => ['required', Rule::enum(TipoVeiculo::class)],
             'ano' => ['nullable', 'integer', 'min:1900', 'max:'.(now()->year + 1)],
-            'ativo' => ['sometimes', 'boolean'],
-            'autorizado' => ['sometimes', 'boolean'],
-            'validade_autorizacao' => ['nullable', 'date'],
-            'motivo_bloqueio' => ['nullable', 'string', 'max:255'],
-            'observacoes' => ['nullable', 'string', 'max:5000'],
+            'ativo' => ['required', 'boolean'],
+            'autorizado' => ['required', 'boolean'],
+            'observacoes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

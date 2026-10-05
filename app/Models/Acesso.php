@@ -18,6 +18,7 @@ class Acesso extends Model
 
     protected $fillable = [
         'veiculo_id',
+        'capture_id',
         'pessoa_id',
         'user_id',
         'ponto_acesso_id',
@@ -28,6 +29,9 @@ class Acesso extends Model
         'data_hora',
         'imagem',
         'confianca',
+        'confianca_yolo',
+        'quadros_confirmados',
+        'modelo_placa',
         'observacoes',
         'metadata',
     ];
@@ -40,6 +44,8 @@ class Acesso extends Model
             'origem' => OrigemAcesso::class,
             'data_hora' => 'datetime',
             'confianca' => 'decimal:2',
+            'confianca_yolo' => 'decimal:4',
+            'quadros_confirmados' => 'integer',
             'metadata' => 'array',
         ];
     }
@@ -67,6 +73,11 @@ class Acesso extends Model
     public function pontoAcesso(): BelongsTo
     {
         return $this->belongsTo(PontoAcesso::class)->withTrashed();
+    }
+
+    public function triagem(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Triagem::class);
     }
 
     public function scopeDaPlaca(Builder $query, string $placa): Builder
