@@ -24,10 +24,14 @@
         <a class="{{ request()->routeIs('veiculos.*') ? 'active' : '' }}" href="{{ route('veiculos.index') }}">
             <span class="nav-icon">▱</span> Veículos
         </a>
+        <a class="{{ request()->routeIs('relatorios.*') ? 'active' : '' }}" href="{{ route('relatorios.index') }}">
+            <span class="nav-icon">▤</span> Relatórios
+        </a>
     </nav>
 
     <div class="sidebar-note">
-        <strong>Versão 1.3</strong>
+        <strong>Versão 1.6</strong>
+         <strong>Todos os direitos reservados a Claitom Rodrigues</strong>
     </div>
 </aside>
 

@@ -1,10 +1,11 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AcessoController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CapturaCameraController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PessoaController;
+use App\Http\Controllers\RelatorioController;
 use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\VeiculoController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,9 @@ Route::middleware(['auth', 'ativo'])->group(function (): void {
     Route::post('/acessos/manuais', [AcessoController::class, 'registrarManual'])->name('acessos.registrar-manual');
     Route::put('/triagens/{triagem}/concluir', [TriagemController::class, 'concluir'])->name('triagens.concluir');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/relatorios', [RelatorioController::class, 'index'])->name('relatorios.index');
+    Route::get('/relatorios/pdf', [RelatorioController::class, 'pdf'])->name('relatorios.pdf');
+    Route::get('/relatorios/csv', [RelatorioController::class, 'acessosCsv'])->name('relatorios.csv');
 
     Route::resource('condutores', PessoaController::class)
         ->parameters(['condutores' => 'pessoa'])

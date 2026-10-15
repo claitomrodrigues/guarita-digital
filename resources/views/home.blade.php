@@ -115,6 +115,7 @@
             <h2>Ações rápidas</h2>
             <a class="btn btn-primary" href="{{ route('condutores.create') }}">Novo condutor</a>
             <a class="btn btn-secondary" href="{{ route('veiculos.create') }}">Novo veículo</a>
+            <a class="btn btn-ghost" href="{{ route('relatorios.index') }}">Consultar relatórios</a>
             <a class="btn btn-ghost" href="{{ route('veiculos.index') }}">Ver veículos cadastrados</a>
         </article>
     </section>
