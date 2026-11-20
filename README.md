@@ -231,7 +231,7 @@ Essas funcionalidades permitem centralizar os dados necessários para relacionar
 
 ### 5.3 Cadastro de condutores
 
-![Cadastro de condutores](public/img/cadastrarCondutor(1).png)
+![Cadastro de condutores](public/img/cadastrarCondutor.png)
 
 **Figura 3 — Formulário de cadastro de condutores.**
 
@@ -266,7 +266,7 @@ A associação entre condutores e veículos permite consultar o responsável por
 
 ### 5.5 Cadastro de veículos
 
-![Cadastro de veículos](public/img/cadastrarVeiculo(1).png)
+![Cadastro de veículos](public/img/cadastrarVeiculo.png)
 
 **Figura 5 — Formulário de cadastro de veículos.**
 
