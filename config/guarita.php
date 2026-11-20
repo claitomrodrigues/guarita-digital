@@ -1,3 +1,4 @@
+
 <?php
 
 $pythonVirtual = PHP_OS_FAMILY === 'Windows'
@@ -7,9 +8,32 @@ $pythonVirtual = PHP_OS_FAMILY === 'Windows'
 $pythonPadrao = is_file($pythonVirtual) ? $pythonVirtual : 'python';
 
 return [
+    'admin' => [
+        'name' => env('GUARD_NAME', 'Guarda da Guarita'),
+        'email' => env('ADMIN_EMAIL', 'admin@guarita.local'),
+        'matricula' => env('ADMIN_MATRICULA', 'admin'),
+        'password' => env('ADMIN_PASSWORD')
+            ?: (env('APP_ENV') === 'production' ? '' : 'Guarita@2026'),
+    ],
+
     'max_capture_kb' => (int) env('MAX_CAPTURE_KB', 10240),
-    'python_executable' => env('PYTHON_PATH', env('PYTHON_EXECUTABLE', $pythonPadrao)),
-    'placa_script' => env('PLACA_SCRIPT') ?: base_path('python/reconhecer_imagem.py'),
+
+    'python_executable' => env(
+        'PYTHON_PATH',
+        env('PYTHON_EXECUTABLE', $pythonPadrao)
+    ),
+
+    'placa_script' => env('PLACA_SCRIPT')
+        ?: base_path('python/reconhecer_imagem.py'),
+
     'ocr_timeout_seconds' => (int) env('OCR_TIMEOUT_SECONDS', 180),
+
     'ocr_idle_timeout_seconds' => (int) env('OCR_IDLE_TIMEOUT_SECONDS', 90),
+
+    // Configurações da API de reconhecimento
+    'ocr_mode' => env('OCR_MODE', 'local'),
+
+    'ocr_api_url' => env('OCR_API_URL', ''),
+
+    'ocr_api_token' => env('OCR_API_TOKEN', ''),
 ];

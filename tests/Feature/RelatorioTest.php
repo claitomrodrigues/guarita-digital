@@ -6,7 +6,9 @@ use App\Enums\OrigemAcesso;
 use App\Enums\StatusAcesso;
 use App\Enums\TipoAcesso;
 use App\Models\Acesso;
+use App\Models\Pessoa;
 use App\Models\User;
+use App\Models\Veiculo;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -112,6 +114,30 @@ class RelatorioTest extends TestCase
             ->assertDownload('relatorio-acessos-2026-10-01-2026-10-06.pdf');
 
         $this->assertStringStartsWith('%PDF-', $resposta->getContent());
+    }
+
+    public function test_csv_escapa_campos_textuais_que_podem_ser_formulas(): void
+    {
+        $usuario = User::factory()->create();
+        $pessoa = Pessoa::query()->create([
+            'nome' => '=HYPERLINK("https://example.invalid")',
+            'tipo_vinculo' => 'visitante',
+            'ativo' => true,
+        ]);
+        $veiculo = Veiculo::query()->create([
+            'pessoa_id' => $pessoa->id,
+            'placa' => 'ABC1D23',
+            'modelo' => 'Veículo teste',
+            'tipo' => 'carro',
+            'ativo' => true,
+            'autorizado' => true,
+        ]);
+        Acesso::factory()->paraVeiculo($veiculo)->create(['data_hora' => now()]);
+
+        $resposta = $this->actingAs($usuario)->get(route('relatorios.csv'));
+
+        $resposta->assertOk();
+        $this->assertStringContainsString("'=HYPERLINK", $resposta->streamedContent());
     }
 
     public function test_visitante_nao_autenticado_nao_pode_consultar_relatorios(): void

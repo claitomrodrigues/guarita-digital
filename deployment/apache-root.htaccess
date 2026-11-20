@@ -1,0 +1,47 @@
+Options -Indexes
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+    <FilesMatch "^(?!index\.php$).+\.php[0-9]?$">
+        Require all denied
+    </FilesMatch>
+    <FilesMatch "^(?:artisan|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|vite\.config\.js|README(?:\.md|\.zip)?|credenciais\.txt|.*\.(?:sqlite|sql|log|bak))$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    <FilesMatch "^\.">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    <FilesMatch "^(?!index\.php$).+\.php[0-9]?$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    <FilesMatch "^(?:artisan|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|vite\.config\.js|README(?:\.md|\.zip)?|credenciais\.txt|.*\.(?:sqlite|sql|log|bak))$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:X-XSRF-TOKEN} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-TOKEN}]
+
+    RewriteRule ^guarita_app(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:app|bootstrap|config|database|docs|node_modules|public|resources|routes|storage|tests|vendor|python|\.git)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:artisan|composer\.(?:json|lock)|package(?:-lock)?\.json|phpunit\.xml|vite\.config\.js|README(?:\.md|\.zip)?|credenciais\.txt|.*\.(?:sqlite|sql|log|bak))$ - [F,L,NC]
+
+    RewriteRule ^index\.php$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>

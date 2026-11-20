@@ -1,0 +1,40 @@
+eLxK4sTbU9aPtk6umaZ2sdPb7MllNcWuvxLymDirUlg=
+
+
+site: base64:695RLpE+Vavym2iAATw0XzMfjMmeMJrvFD1ZKAaquC0=
+
+1. Terminal 1 — Ligar a FastAPI (Python)
+Execute:
+cd C:\laragon\www\guarita-digital\python
+
+
+Configure o mesmo token utilizado no .env do Laravel:
+$env:GUARITA_API_TOKEN = "eLxK4sTbU9aPtk6umaZ2sdPb7MllNcWuvxLymDirUlg="
+
+
+Agora ligue a API:
+.\.venv\Scripts\python.exe -m uvicorn api:app --host 127.0.0.1 --port 8000
+
+
+Deve aparecer:
+INFO: Application startup complete.
+INFO: Uvicorn running on http://127.0.0.1:8000
+
+
+Deixe esse terminal aberto!
+2. Terminal 2 — Ligar o Cloudflare
+Abra outro PowerShell e execute:
+cloudflared tunnel --url http://127.0.0.1:8000
+
+
+Aguarde aparecer:
+Your quick Tunnel has been created!
+https://novo-endereco.trycloudflare.com
+
+Registered tunnel connection
+
+
+Deixe esse terminal aberto também!
+3. Testar se está funcionando
+Copie o novo endereço do Cloudflare e abra no navegador:
+https://novo-endereco.trycloudflare.com/saude

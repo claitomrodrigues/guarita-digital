@@ -19,7 +19,7 @@ class VeiculoPolicy
 
     public function create(User $user): bool
     {
-        return $user->ativo && $user->isAdministrador();
+        return $user->ativo && ($user->isAdministrador() || $user->isSeguranca());
     }
 
     public function update(User $user, Veiculo $veiculo): bool

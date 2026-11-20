@@ -65,12 +65,12 @@ class RelatorioController extends Controller
             $query->chunkById(500, function ($acessos) use ($arquivo): void {
                 foreach ($acessos as $acesso) {
                     fputcsv($arquivo, [
-                        $acesso->data_hora?->format('d/m/Y H:i:s'),
-                        Placa::formatar($acesso->placa_reconhecida),
-                        $acesso->tipo?->label(),
-                        $acesso->status?->label(),
-                        $acesso->veiculo?->pessoa?->nome,
-                        $acesso->pontoAcesso?->nome,
+                        $this->protegerFormulaCsv($acesso->data_hora?->format('d/m/Y H:i:s')),
+                        $this->protegerFormulaCsv(Placa::formatar($acesso->placa_reconhecida)),
+                        $this->protegerFormulaCsv($acesso->tipo?->label()),
+                        $this->protegerFormulaCsv($acesso->status?->label()),
+                        $this->protegerFormulaCsv($acesso->veiculo?->pessoa?->nome),
+                        $this->protegerFormulaCsv($acesso->pontoAcesso?->nome),
                         $acesso->confianca,
                         $acesso->confianca_yolo,
                     ], ';');
@@ -79,6 +79,15 @@ class RelatorioController extends Controller
 
             fclose($arquivo);
         }, 'acessos-'.now()->format('Y-m-d-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function protegerFormulaCsv(?string $valor): string
+    {
+        $valor ??= '';
+
+        return preg_match('/\A[\x00-\x20]*[=+\-@]/', $valor) === 1
+            ? "'".$valor
+            : $valor;
     }
 
     /**

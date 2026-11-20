@@ -64,12 +64,24 @@ precisa ser autorizada no navegador.
 
 ## Acesso inicial
 
-- matrícula: `admin`
-- e-mail: `admin@guarita.local`
-- senha: `Guarita@2026`
+O seeder cria uma única conta ativa, identificada como **Guarda da Guarita** e
+com perfil de Segurança. Ao executá-lo em uma instalação existente, as outras
+contas são desativadas e movidas para exclusão lógica, preservando os registros
+históricos. Altere `ADMIN_EMAIL`, `GUARD_NAME`, `ADMIN_MATRICULA` e
+`ADMIN_PASSWORD` no `.env` antes de executar o seeder para definir as credenciais
+do operador. Em produção, `ADMIN_PASSWORD` deve ter pelo menos 16 caracteres;
+não use credenciais de exemplo. A execução do seeder em produção falha se essa
+senha não estiver configurada.
 
-Altere esses valores no `.env` antes de executar o seeder se desejar outras
-credenciais.
+Para aplicar a configuração em uma instalação existente:
+
+```powershell
+php artisan db:seed --class=UsuariosSistemaSeeder
+```
+
+> O seeder desativa e move para exclusão lógica todas as contas diferentes da
+> conta configurada. Em atualizações normais, execute apenas as migrações e não
+> rode o seeder novamente.
 
 ## Estrutura principal
 
@@ -81,6 +93,9 @@ credenciais.
 
 As pastas `vendor`, `python/.venv`, o arquivo `.env`, logs e caches não fazem
 parte do código-fonte. Eles são recriados pelos comandos de instalação acima.
+
+Veja [docs/IMPLANTACAO-HOSPEDAGEM.md](docs/IMPLANTACAO-HOSPEDAGEM.md) para
+publicação em hospedagem compartilhada por SFTP.
 
 ## Erro de UTF-8 corrigido
 

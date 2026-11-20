@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\PerfilUsuario;
+use App\Models\Pessoa;
 use App\Models\User;
+use App\Models\Veiculo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,49 +13,45 @@ class PermissionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_seguranca_pode_consultar_mas_nao_alterar_cadastros(): void
+    public function test_seguranca_pode_manter_condutores_e_veiculos(): void
     {
         $seguranca = User::factory()->create(['perfil' => PerfilUsuario::Seguranca]);
 
         $this->actingAs($seguranca)
-            ->getJson('/api/pessoas')
+            ->get('/condutores/create')
             ->assertOk();
 
         $this->actingAs($seguranca)
-            ->postJson('/api/pessoas', [
-                'nome' => 'Pessoa Teste',
+            ->get('/veiculos/create')
+            ->assertOk();
+
+        $this->assertTrue($seguranca->can('create', Pessoa::class));
+        $this->assertTrue($seguranca->can('create', Veiculo::class));
+
+        $this->actingAs($seguranca)
+            ->post('/condutores', [
+                'nome' => 'Condutor da guarita',
                 'tipo_vinculo' => 'servidor',
+                'ativo' => '1',
             ])
-            ->assertForbidden();
-    }
+            ->assertRedirect('/condutores');
 
-    public function test_administrador_pode_criar_pessoa(): void
-    {
-        $administrador = User::factory()->create(['perfil' => PerfilUsuario::Administrador]);
+        $condutor = Pessoa::query()->where('nome', 'Condutor da guarita')->firstOrFail();
 
-        $this->actingAs($administrador)
-            ->postJson('/api/pessoas', [
-                'nome' => 'Pessoa Teste',
-                'tipo_vinculo' => 'servidor',
+        $this->actingAs($seguranca)
+            ->post('/veiculos', [
+                'pessoa_id' => $condutor->id,
+                'placa' => 'ABC1D23',
+                'modelo' => 'Veículo teste',
+                'tipo' => 'carro',
+                'ativo' => '1',
+                'autorizado' => '1',
             ])
-            ->assertCreated()
-            ->assertJsonPath('data.nome', 'Pessoa Teste');
-    }
+            ->assertRedirect('/veiculos');
 
-    public function test_administrador_pode_criar_mais_de_um_vigilante(): void
-    {
-        $administrador = User::factory()->create(['perfil' => PerfilUsuario::Administrador]);
-
-        foreach ([1, 2] as $numero) {
-            $this->actingAs($administrador)->postJson('/api/usuarios', [
-                'name' => "Vigilante {$numero}",
-                'email' => "vigilante{$numero}@teste.local",
-                'password' => 'SenhaForte123',
-                'password_confirmation' => 'SenhaForte123',
-                'perfil' => PerfilUsuario::Seguranca->value,
-            ])->assertCreated();
-        }
-
-        $this->assertDatabaseCount('users', 3);
+        $this->assertDatabaseHas('veiculos', [
+            'pessoa_id' => $condutor->id,
+            'placa' => 'ABC1D23',
+        ]);
     }
 }

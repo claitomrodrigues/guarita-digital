@@ -133,12 +133,10 @@ def extrair_candidatos(
         if len(trecho) != 7:
             continue
 
-        if PADRAO_ANTIGO.fullmatch(trecho):
-            tipos = ("antiga",)
-        elif PADRAO_MERCOSUL.fullmatch(trecho):
-            tipos = ("mercosul",)
+        if tipo_visual in MASCARAS:
+            tipos = (tipo_visual,)
         else:
-            tipos = (tipo_visual,) if tipo_visual in MASCARAS else ("antiga", "mercosul")
+            tipos = ("antiga", "mercosul")
 
         for tipo in tipos:
             convertido = converter_por_mascara(trecho, MASCARAS[tipo])
@@ -195,7 +193,7 @@ def corrigir_perspectiva(recorte: np.ndarray) -> np.ndarray:
 
 
 def detectar_tipo_visual(recorte: np.ndarray) -> tuple[str, float]:
-    """Classifica Mercosul somente com evidência positiva de faixa azul."""
+    """Classifica Mercosul através de faixa azul."""
 
     if recorte.shape[0] < 25 or recorte.shape[1] < 70:
         return "indefinida", 0.0

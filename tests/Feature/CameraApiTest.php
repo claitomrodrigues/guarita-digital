@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\SentidoPontoAcesso;
 use App\Models\PontoAcesso;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CameraApiTest extends TestCase
@@ -45,5 +47,28 @@ class CameraApiTest extends TestCase
     public function test_camera_sem_token_e_rejeitada(): void
     {
         $this->postJson('/api/v1/camera/reconhecimentos', [])->assertUnauthorized();
+    }
+
+    public function test_imagem_de_captura_retorna_url_protegida_por_sessao(): void
+    {
+        Storage::fake('local');
+        $token = 'gd_'.str_repeat('b', 64);
+        PontoAcesso::factory()->create([
+            'camera_token_hash' => hash('sha256', $token),
+        ]);
+
+        $resposta = $this->withToken($token)->post('/api/v1/camera/reconhecimentos', [
+            'capture_id' => 'captura-camera-imagem-01',
+            'placa' => 'ABC1D23',
+            'confianca_ocr' => 0.93,
+            'capturado_em' => now()->toIso8601String(),
+            'imagem' => UploadedFile::fake()->image('captura.jpg'),
+        ]);
+
+        $resposta->assertCreated();
+        $urlImagem = $resposta->json('data.imagem_url');
+        $this->assertIsString($urlImagem);
+
+        $this->get($urlImagem)->assertRedirect(route('login'));
     }
 }

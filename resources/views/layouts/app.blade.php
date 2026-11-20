@@ -8,34 +8,44 @@
     <link rel="stylesheet" href="{{ asset('css/guarita.css') }}">
 </head>
 <body class="app-page">
+<a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
 <aside class="sidebar">
     <a class="sidebar-brand" href="{{ route('home') }}">
-        <span class="brand-mark small">GD</span>
-        <span><strong>Guarita Digital</strong><small>IFFar • SVS</small></span>
+        <span class="brand-mark small" aria-hidden="true">
+            <svg viewBox="0 0 32 32" focusable="false">
+                <path d="M16 3 27 7v8c0 7-4.5 11.5-11 14C9.5 26.5 5 22 5 15V7l11-4Z" />
+                <path d="m11 16 3.3 3.3L21 12.5" />
+            </svg>
+        </span>
+        <span><strong>Guarita Digital</strong><small>IFFar <i></i> SVS</small></span>
     </a>
 
     <nav aria-label="Navegação principal">
         <a class="{{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">
-            <span class="nav-icon">⌂</span> Home
+            <span class="nav-icon" aria-hidden="true">⌂</span><span>Visão geral</span>
         </a>
         <a class="{{ request()->routeIs('condutores.*') ? 'active' : '' }}" href="{{ route('condutores.index') }}">
-            <span class="nav-icon">♙</span> Condutores
+            <span class="nav-icon" aria-hidden="true">♙</span><span>Condutores</span>
         </a>
         <a class="{{ request()->routeIs('veiculos.*') ? 'active' : '' }}" href="{{ route('veiculos.index') }}">
-            <span class="nav-icon">▱</span> Veículos
+            <span class="nav-icon" aria-hidden="true">▱</span><span>Veículos</span>
         </a>
         <a class="{{ request()->routeIs('relatorios.*') ? 'active' : '' }}" href="{{ route('relatorios.index') }}">
-            <span class="nav-icon">▤</span> Relatórios
+            <span class="nav-icon" aria-hidden="true">▤</span><span>Relatórios</span>
         </a>
     </nav>
 
+    <div class="sidebar-status">
+        <span class="status-indicator"></span>
+        <div><strong>Posto operacional</strong><small>Sistema pronto para uso</small></div>
+    </div>
     <div class="sidebar-note">
-        <strong>Versão 1.6</strong>
-         <strong>Todos os direitos reservados a Claitom Rodrigues</strong>
+        <strong>Guarita Digital <span>•</span> v2.0</strong>
+        <small>IFFar — Campus São Vicente do Sul</small>
     </div>
 </aside>
 
-<main class="app-main">
+<main class="app-main" id="conteudo-principal">
     <header class="topbar">
         <div>
             <p class="eyebrow">@yield('kicker', 'Guarita Digital')</p>
@@ -46,12 +56,12 @@
                 <span>{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
                 <div>
                     <strong>{{ auth()->user()->name }}</strong>
-                    <small>{{ auth()->user()->perfil?->label() ?? 'Usuário' }}</small>
+                    <small><i class="user-status-dot"></i>{{ auth()->user()->perfil?->label() ?? 'Operador' }}</small>
                 </div>
             </div>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button class="btn btn-ghost" type="submit">Sair</button>
+                <button class="btn btn-ghost logout-button" type="submit"><span aria-hidden="true">↗</span> Sair</button>
             </form>
         </div>
     </header>

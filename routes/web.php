@@ -14,12 +14,15 @@ Route::get('/', fn () => redirect()->route(auth()->check() ? 'home' : 'login'));
 
 Route::middleware('guest')->group(function (): void {
     Route::view('/login', 'auth.login')->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:5,1')
+        ->name('login.store');
 });
 
 Route::middleware(['auth', 'ativo'])->group(function (): void {
     Route::get('/home', DashboardController::class)->name('home');
     Route::post('/camera/reconhecer', CapturaCameraController::class)->name('camera.reconhecer');
+    Route::get('/acessos/{acesso}/imagem', [AcessoController::class, 'imagem'])->name('acessos.imagem');
     Route::post('/acessos/manuais', [AcessoController::class, 'registrarManual'])->name('acessos.registrar-manual');
     Route::put('/triagens/{triagem}/concluir', [TriagemController::class, 'concluir'])->name('triagens.concluir');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
